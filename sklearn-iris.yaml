@@ -5,7 +5,7 @@ metadata:
   namespace: kserve-test
 spec:
   predictor:
-    minReplicas: 0
+    minReplicas: 1
     maxReplicas: 5
     model:
       modelFormat:
