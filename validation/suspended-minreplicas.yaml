@@ -1,0 +1,31 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: helloworld-suspended
+  namespace: default
+spec:
+  predictor:
+    minReplicas: 0
+    model:
+      modelFormat:
+        name: tensorflow
+      storageUri: s3://bucket/model
+status:
+  conditions:
+  - lastTransitionTime: "2023-06-20T22:44:517"
+    status: "True"
+    type: IngressReady
+  - lastTransitionTime: "2023-06-20T22:44:50Z"
+    severity: Info
+    status: "True"
+    type: PredictorConfigurationReady
+  - lastTransitionTime: "2023-06-20T22:44:512"
+    status: "True"
+    type: PredictorReady
+  - lastTransitionTime: "2023-06-20T22:44:512"
+    severity: Info
+    status: "True"
+    type: PredictorRouteReady
+  - lastTransitionTime: "2023-06-20T22:44:512"
+    status: "True"
+    type: Ready
