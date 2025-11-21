@@ -1,0 +1,72 @@
+## Problem Statement
+
+The current KServe InferenceService health check has a critical bug when `transitionStatus == "InProgress"`:
+
+### Current Behavior (Buggy)
+When a model is actively transitioning (`transitionStatus: InProgress`), if there are any `False` conditions, the health check returns **"Degraded"** even though the service is progressing normally.
+
+**Example**: During model loading, conditions like `PredictorReady: False` are temporary and expected, but the current logic treats them as failures.
+
+### Root Cause
+```lua
+# Current logic (simplified)
+if progressing == true:
+    # This is set but not prioritized
+if status_false > 0:
+    return "Degraded"  # This runs even when progressing!
+```
+
+### Fixed Behavior
+```lua
+# Fixed logic - prioritize progressing state
+if stopped == true:
+    return "Suspended"
+elif progressing == true:  # CHECK THIS FIRST
+    return "Progressing"   # Correct status during transitions
+elif status_false > 0:
+    return "Degraded"
+```
+
+## Changes Made
+
+1. **Fix InProgress Bug**: Prioritize `progressing == true` over False conditions
+2. **Enhanced Suspension Detection**: Support both `minReplicas=0` AND `Stopped=True` condition
+3. **Better Diagnostics**: Indexed conditions with reasons and detailed messages
+4. **Comprehensive Tests**: Full test coverage for all health states
+
+## New State Flow
+```
+InferenceService Status → Health Check Logic → ArgoCD Health
+├─ minReplicas=0 OR Stopped=True → "Suspended"
+├─ transitionStatus=InProgress → "Progressing" (even with False conditions)
+├─ All conditions True → "Healthy"
+├─ Unknown conditions only → "Progressing"
+└─ False conditions (and not InProgress) → "Degraded"
+```
+
+## Backward Compatibility
+
+The changes are backward compatible and improve accuracy across KServe versions:
+- Works with v0.15.0+ 
+- Handles both Standard and Serverless deployment modes
+- Future-proof for when KServe implements explicit `Stopped=True` condition
+
+## Testing
+
+Tested across multiple KServe versions:
+- ✅ KServe v0.15.0 (RawDeployment mode)
+- ✅ KServe v0.15.2 (Minikube)
+- ✅ KServe v0.16.0 (Minikube)
+
+All tests pass successfully. Screenshots and test results available in testing documentation.
+
+
+## Test Evidence
+
+All existing tests pass, plus new tests for suspended states:
+```bash
+$ go test -v ./util/lua/ -run TestLuaHealthScript/serving.kserve.io/InferenceService/
+insert tests
+New test cases added:
+- `suspended-minreplicas.yaml`: Tests `minReplicas=0` detection
+- `suspended-stopped.yaml`: Tests `Stopped=True` condition (future-proof)
